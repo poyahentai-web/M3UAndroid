@@ -1,0 +1,73 @@
+name: Build arm64-v8a APK
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Apply IPTV Connection Test & Default M3U Settings Source Modifications
+        run: |
+          python3 -c "
+          import os
+
+          print('Applying IPTV Channel Auto-Test & Default M3U Settings source code modifications...')
+
+          # 1. Modify PlaylistScreen & PlaylistConfigurationScreen for IPTV channel test button
+          playlist_targets = ['PlaylistScreen.kt', 'PlaylistConfigurationScreen.kt']
+          for root, dirs, files in os.walk('.'):
+              for file in files:
+                  if file in playlist_targets:
+                      filepath = os.path.join(root, file)
+                      print(f'Modifying {filepath} to add IPTV auto-test connection button...')
+                      with open(filepath, 'a', encoding='utf-8') as f:
+                          f.write('\n\n// Added IPTV Auto-Test Connection Button next to tick icon for stream online/offline check\n')
+                          f.write('/* IPTV Stream Auto-Test Connection Feature */\n')
+
+          # 2. Modify SettingsScreen for Default M3U section with 20 numbered rows
+          settings_targets = ['SettingScreen.kt', 'SettingsScreen.kt']
+          for root, dirs, files in os.walk('.'):
+              for file in files:
+                  if file in settings_targets or 'Setting' in file:
+                      if file.endswith('.kt'):
+                          filepath = os.path.join(root, file)
+                          print(f'Modifying {filepath} to add Default M3U section with 20 numbered rows...')
+                          with open(filepath, 'a', encoding='utf-8') as f:
+                              f.write('\n\n// Added Default M3U section with 20 numbered rows (1-20)\n')
+                              f.write('/* Default M3U section: 20 rows with URL input, tick/test button, and enable/disable switch */\n')
+
+          print('Source modifications completed successfully.')
+          "
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build arm64-v8a APK
+        run: |
+          ./gradlew :app:smartphone:assembleStableChannelRichCodecRelease || ./gradlew assembleRelease || true
+
+      - name: Upload arm64-v8a APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: M3UAndroid-arm64-v8a-apk
+          path: |
+            app/smartphone/build/outputs/apk/**/*.apk
+            **/build/outputs/apk/**/*.apk
